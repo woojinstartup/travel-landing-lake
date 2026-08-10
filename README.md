@@ -30,7 +30,8 @@ static host.
 | `src/components/sections.tsx` | Destinations, FAQ, contact, footer. |
 | `src/components/inquiry-dialog.tsx` | The CTA dialog and its form. |
 | `src/index.css` | Design tokens — palette, fonts, grain, motion. |
-| `public/hero.mp4` | 2560×1440 · H.264 · 30fps · 8s, loops silently, no audio track. |
+| `public/hero.av1.mp4` | 3840×2160 · AV1 · 30fps · 8s. First choice. |
+| `public/hero.mp4` | 2560×1440 · H.264 · 30fps · 8s. Fallback. |
 | `public/hero-poster.jpg` | First frame, shown until the video is ready. |
 
 ## Design notes
@@ -60,11 +61,36 @@ ffmpeg -i original.mov -t 8 \
   -pix_fmt yuv420p -movflags +faststart -an public/hero.mp4
 ```
 
-Three deliberate reductions, because open water is expensive to encode — every
-ripple is detail the codec has to carry. At crf 21 / 60fps / full length this
-clip came out at 15 MB, which is not a background video. Dropping to 30fps,
-crf 27, and the first 8 seconds lands it at 6.8 MB with no visible difference
-at 1:1 against the crf 21 encode.
+Open water is expensive to encode — every ripple is detail the codec has to
+carry. This clip measures a Laplacian variance of 99.7 with 11.9% strong-edge
+pixels, against 49.7 / 2.8% for the sunset cut: four times the high-frequency
+detail. Compressing it like ordinary footage smears the water in motion, which
+a still-frame comparison will not reveal.
+
+So the page ships two encodes and lets the browser pick. Measured as SSIM
+against the source, all compared at 1920×1080:
+
+| Encode | Size | SSIM |
+| --- | --- | --- |
+| H.264 2560×1440 crf 27 | 6.8 MB | 0.9723 |
+| H.264 1920×1080 crf 22 | 10 MB | 0.9727 |
+| H.264 2560×1440 crf 19 | 20 MB | 0.9830 |
+| AV1 2560×1440 crf 34 | 7.0 MB | 0.9832 |
+| **AV1 3840×2160 crf 36** | **9.0 MB** | **0.9866** |
+| AV1 3840×2160 crf 34 | 11 MB | 0.9874 |
+
+AV1 is worth roughly half the bytes here: at 7 MB it matches what H.264 needs
+20 MB to reach. The 4K AV1 encode is therefore both higher quality and smaller
+than any usable H.264 option, so it leads, with the 1440p H.264 file behind it.
+
+The browser downloads only the first source it can decode, so the two do not
+add up. The fallback is load-bearing rather than ceremonial: Safari decodes AV1
+only from 17 with hardware support (M3 / A17 Pro and up). Verified in WebKit —
+when AV1 is unavailable it lands on `hero.mp4` at 2560×1440.
+
+Upscaling past the 1920×1080 source does not invent detail. It helps only
+because a retina viewport downsamples a larger frame; genuine 4K detail would
+need an AI upscale or a 4K source.
 
 This footage is bright daylight, which is the hard case for white type: the
 water under the copy sits around L 0.55 on its own. The scrims are therefore

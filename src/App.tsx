@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Contact, Destinations, Faq, SiteFooter } from "@/components/sections"
+import { DitherGradient } from "@/components/dither-kit/gradient"
 import { InquiryDialog } from "@/components/inquiry-dialog"
 import { SiteNav } from "@/components/site-nav"
 import { site } from "@/site"
@@ -19,8 +20,21 @@ export default function App() {
         <div className="dark bg-background text-foreground">
           <Destinations />
           <Faq />
-          <Contact />
-          <SiteFooter />
+
+          {/* Closes the page on the same water it opens on. Hue 179 is the HSL
+              reading of --color-aqua, so the wash is the existing accent rather
+              than a second colour, and the opacity stays low enough that the
+              video is still the only saturated thing on screen. The wash spans
+              the footer too — anchored to the section alone it peaks at full
+              density on the bottom edge and cuts off in a hard seam. */}
+          <div className="relative">
+            <DitherGradient from={179} direction="up" cell={4} opacity={0.18} />
+
+            <div className="relative">
+              <Contact />
+              <SiteFooter />
+            </div>
+          </div>
         </div>
       </main>
     </>
@@ -45,11 +59,20 @@ function Hero() {
 function HeroMedia() {
   return (
     <div className="grain absolute inset-0 overflow-hidden">
-      {/* No upscale on the element itself — the source is already 2560×1440,
-          so any CSS scale would just throw that resolution away again. */}
+      {/* Two encodes of the same 8 seconds. The browser downloads only the first
+          source it can decode, so these do not add up.
+
+          AV1 carries this footage far better than H.264 — the water is dense
+          high-frequency texture, which is exactly where H.264 falls apart. At
+          matched size AV1 measures 0.9866 SSIM against the source where H.264
+          manages 0.9723, so AV1 gets the 4K encode and H.264 stays at 1440p.
+
+          The fallback is not optional: Safari only decodes AV1 from 17 with
+          hardware support (M3 / A17 Pro and up). Everything older lands on the
+          H.264 file. No CSS scale on the element — that would throw away the
+          resolution this is all for. */}
       <video
         className="size-full object-cover contrast-[1.04] saturate-[1.03]"
-        src="/hero.mp4"
         poster="/hero-poster.jpg"
         autoPlay
         muted
@@ -58,7 +81,10 @@ function HeroMedia() {
         preload="auto"
         aria-hidden="true"
         tabIndex={-1}
-      />
+      >
+        <source src="/hero.av1.mp4" type='video/mp4; codecs="av01.0.12M.08"' />
+        <source src="/hero.mp4" type="video/mp4" />
+      </video>
 
       {/* This footage is bright daylight — the water under the copy sits around
           L 0.55, where white type has nowhere near enough contrast on its own.
